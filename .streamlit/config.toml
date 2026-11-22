@@ -1,0 +1,6 @@
+# Keep the demo fully offline: no telemetry.
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
