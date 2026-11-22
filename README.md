@@ -7,6 +7,8 @@ inadmissible heuristic. The agent's world is symbolic. A state is an abstract tr
 can explain why an action was blocked. Everything is local, deterministic and hardcoded, with no
 network, database or LLM calls, so every number in this README can be reproduced exactly.
 
+Detailed design documentation lives in [`docs/`](docs/README.md).
+
 ## How it maps to the lecture
 
 - **Abstract state representation:** `State(pos, inventory, mode)` in
