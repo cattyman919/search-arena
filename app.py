@@ -29,7 +29,7 @@ ALGORITHM_KEYS: dict[str, str] = {
     "A*": "astar",
 }
 DEFAULT_SELECTED = ["UCS", "Greedy", "A*"]
-PLAY_SECONDS = 3.0
+PLAY_SECONDS = 2.2  # plus ~1 frame of rendering keeps a full play under ~3 s
 FRAME_SLEEP = 0.05
 
 
@@ -157,6 +157,101 @@ def tab_arena(traces: dict[str, SearchTrace]) -> None:
     _rule_log_panel(traces)
 
 
+def _metrics_frame(traces: dict[str, SearchTrace]) -> pd.DataFrame:
+    rows = [
+        {
+            "Algorithm": label,
+            "Expanded": t.stats["expanded"],
+            "Generated": t.stats["generated"],
+            "Path cost": t.stats["path_cost"],
+            "Path length": t.stats["path_len"],
+            "Max frontier": t.stats["max_frontier"],
+            "Runtime (ms)": round(t.stats["runtime_ms"], 1),
+            "Optimal": bool(t.stats["optimal"]),
+        }
+        for label, t in traces.items()
+    ]
+    return pd.DataFrame(rows)
+
+
+def _styled_metrics(traces: dict[str, SearchTrace]) -> pd.io.formats.style.Styler:
+    df = _metrics_frame(traces)
+
+    def highlight(row: pd.Series) -> list[str]:
+        color = "" if row["Optimal"] else "background-color: #ffe0e0"
+        return [color] * len(row)
+
+    return df.style.apply(highlight, axis=1).format({"Path cost": "{:g}", "Runtime (ms)": "{:.1f}"})
+
+
+def tab_metrics(traces: dict[str, SearchTrace]) -> None:
+    """One row of metrics per selected algorithm; suboptimal rows highlighted."""
+    st.dataframe(_styled_metrics(traces), hide_index=True)
+    st.caption(
+        "Optimal = (path cost == UCS path cost). Greedy, DFS, and A* with an inadmissible "
+        "heuristic can be suboptimal."
+    )
+
+
+def tab_heuristics(scenario: str, astar_selected: bool) -> None:
+    """A* with the admissible vs. the inadmissible heuristic on the same scenario."""
+    if not astar_selected:
+        st.info("Select A* in the sidebar to enable this tab.")
+        return
+    adm = _run(scenario, "astar", "admissible")
+    inadm = _run(scenario, "astar", "inadmissible")
+    pair = {adm.algorithm: adm, inadm.algorithm: inadm}
+    annotate_optimality(pair)
+    for col, (label, trace) in zip(st.columns(2), pair.items(), strict=True):
+        with col:
+            _show_grid(trace, None, label)
+    st.dataframe(_styled_metrics(pair), hide_index=True)
+    st.info(
+        f"A* inadmissible: cost {inadm.path_cost:g} vs {adm.path_cost:g} (optimal). "
+        f"Expanded {inadm.stats['expanded']} vs {adm.stats['expanded']} nodes."
+    )
+    if scenario == "key_door":
+        st.caption("On KeyDoor the admissible heuristic is h_keydoor (detours via the key).")
+
+
+EXPLAINER = """
+### What is a *state* here?
+A state is the triple **(pos, inventory, mode)**: where the agent is, which items it holds
+(the `keycard`), and its movement mode (`normal`, `speed`, `swim`). Actions are `move`
+(4 cardinal directions, costs the target tile's terrain cost), `pickup` and `toggle_mode`
+(normal → speed → swim → normal); the last two cost 0. The goal test only checks `pos`.
+
+### Why the abstract state?
+In **KeyDoor** the goal sits in a restricted room. A search over raw `(x, y)` sees the
+same cell before and after the pickup, so it can never "remember" the key and fails. Adding
+`inventory` and `mode` to the state makes "at (3,4) without key" and "at (3,4) with key"
+different nodes, so BFS/UCS/A\\* can plan *fetch key → swim → enter room*.
+
+### The rules (checked in order, first block wins)
+1. **WALL_BOUNDS** — a move must stay inside the grid.
+2. **HAZARD** — a move may not enter a hazard tile.
+3. **SLIPPERY_MODE** — slippery tiles may only be entered in `normal` mode.
+4. **WATER_SWIM** — water may only be entered in `swim` mode.
+5. **RESTRICTED_ZONE** — restricted tiles require the `keycard`.
+
+### Admissibility
+A heuristic is **admissible** if it never overestimates the true cheapest remaining cost.
+With an admissible heuristic, A\\* (goal test on pop) returns an optimal path.
+- `h_admissible = 1.0 × Manhattan`: every step costs ≥ 1.0 and at least Manhattan steps
+  remain, so it is a lower bound.
+- `h_inadmissible = 8.0 × Manhattan`: pretends every step is water; on plain terrain it
+  overestimates up to 8×, so A\\* trusts it too much and can return a costlier path
+  (see **Weighted**) — usually after expanding fewer nodes.
+- `h_keydoor = Manhattan(pos, key) + Manhattan(key, goal)` until the key is held: any
+  real route must pass the key, so this is still a lower bound, and tighter than Manhattan.
+"""
+
+
+def tab_explainer() -> None:
+    """Static explanation of the model, rules, and admissibility."""
+    st.markdown(EXPLAINER)
+
+
 def main() -> None:
     """Page entrypoint."""
     st.set_page_config(page_title="Search Arena", layout="wide")
@@ -183,9 +278,17 @@ def main() -> None:
     scenario_label = next(k for k, v in SCENARIO_LABELS.items() if v == ss.scenario)
     st.caption(f"Scenario: **{scenario_label}** · Heuristic for A*: **{ss.heuristic}**")
 
-    (arena,) = st.tabs(["Arena"])
+    arena, metrics, heuristics, explainer = st.tabs(
+        ["Arena", "Metrics Table", "Heuristic Comparison", "Explainer"]
+    )
     with arena:
         tab_arena(ss.traces)
+    with metrics:
+        tab_metrics(ss.traces)
+    with heuristics:
+        tab_heuristics(ss.scenario, any(label.startswith("A*") for label in ss.traces))
+    with explainer:
+        tab_explainer()
 
     if ss.playing:
         time.sleep(FRAME_SLEEP)
