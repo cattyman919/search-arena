@@ -1,6 +1,6 @@
 # Testing
 
-Run with `make test` (or `uv run pytest -q`). 74 tests, about 0.5 s.
+Run with `make test` (or `uv run pytest -q`). 75 tests, about 0.5 s.
 
 ## Layout
 
@@ -15,7 +15,7 @@ Run with `make test` (or `uv run pytest -q`). 74 tests, about 0.5 s.
 
 - **Rules:** out-of-bounds, hazard, slippery (speed and swim), water and restricted are each
   blocked with the right rule name and message; when several would block, the first in order
-  wins.
+  wins. `eval_rules` and `allowed` agree on every state of every scenario.
 - **Admissibility:** for 20 evenly spaced reachable states on Weighted and KeyDoor,
   `h(s) <= true cost`, where the true cost is a fresh UCS from `s`.
 - **Comparisons:**

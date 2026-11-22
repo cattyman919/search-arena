@@ -13,9 +13,9 @@ Each rule is a pure function `(problem, state, action) -> RuleResult | None`:
 ```python
 @dataclass(frozen=True)
 class RuleResult:
-    rule: str     # "WALL_BOUNDS" | "HAZARD" | "SLIPPERY_MODE" | "WATER_SWIM" | "RESTRICTED_ZONE"
+    rule: str  # "WALL_BOUNDS" | "HAZARD" | "SLIPPERY_MODE" | "WATER_SWIM" | "RESTRICTED_ZONE"
     ok: bool
-    detail: str   # short, slide-friendly reason
+    detail: str  # short, slide-friendly reason
 ```
 
 Rules only constrain `move` actions. `pickup` and `toggle_mode` are always allowed at the rule
@@ -40,19 +40,23 @@ appending it there.
 ## Two entry points
 
 - `eval_rules(problem, state, action) -> list[RuleResult]` — every applicable verdict, in order.
-  Used for "show me why" displays; it does not stop at the first block.
+  Used by the *Why?* inspector in the Arena tab; it does not stop at the first block.
 - `allowed(problem, state, action, log=None) -> (bool, RuleResult | None)` — stops at the
   **first** block and returns it, or `(True, None)`. Used by the search. Every verdict it
   evaluates is recorded in `log` if given.
+
+A test checks, for every cell × mode × inventory × move of every scenario, that the first ✗
+in `eval_rules` is exactly the block `allowed` returns, so the inspector and the search can
+never disagree.
 
 ## RuleLog
 
 ```python
 @dataclass
 class RuleLog:
-    entries: list[tuple[State, Action, RuleResult]]   # bounded sample
-    counts: dict[str, int]                            # all evaluations, per rule
-    blocked_counts: dict[str, int]                    # all blocks, per rule
+    entries: list[tuple[State, Action, RuleResult]]  # bounded sample
+    counts: dict[str, int]  # all evaluations, per rule
+    blocked_counts: dict[str, int]  # all blocks, per rule
 ```
 
 - `counts` and `blocked_counts` cover the **whole run**, uncapped.

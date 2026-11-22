@@ -166,8 +166,10 @@ and mode has no solution; this control is tested in `tests/test_search.py`.
    and A\* take the cheapest route (22 moves, cost 22.5).
 4. **Switch the heuristic to Inadmissible** and press Run, or open the Heuristic Comparison tab.
    On the same grid, the path cost rises from 22.5 to 27.5 and expansions drop from 102 to 19.
-5. **KeyDoor + BFS.** In the rule log (Arena tab), filter to `RESTRICTED_ZONE`: `blocked: RestrictedZone requires KeyCard`
-   only for states without the key. Once the key is held, no restricted-zone blocks appear.
+5. **KeyDoor + BFS.** In the rule log (Arena tab), filter to `RESTRICTED_ZONE`:
+   `blocked: RestrictedZone requires KeyCard` appears only for states without the key. Once the key is held, no restricted-zone blocks appear.
+   Then open *Why?*, set the cell to `(8, 0)` and tick *Holding keycard* to show the
+   `RESTRICTED_ZONE` verdict flip from ✗ to ✓.
 6. **Explainer tab:** summarizes state, rules and admissibility.
 
 ## Limitations and possible extensions

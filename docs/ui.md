@@ -21,6 +21,12 @@ Play / Stop buttons. Under each grid: path cost, length, expansions, runtime and
 evaluation/block counts per rule for a chosen trace and the first 10 blocked actions, filterable
 by rule.
 
+The *Why?* expander is a rule inspector. Pick any abstract state (cell `x`, `y`, mode, and
+whether the keycard is held) and it lists every action (four moves, pickup, toggle_mode) with
+every rule that applies to it in evaluation order (✓ / ✗), the final verdict, and the reason.
+Blocked rows are highlighted. For example, KeyDoor at `(8, 0)`: *move Right* shows
+`✓ WALL_BOUNDS ✓ HAZARD ✗ RESTRICTED_ZONE` without the key and all ✓ with it.
+
 **Metrics Table.** One row per algorithm: Expanded, Generated, Path cost, Path length,
 Max frontier, Runtime (ms), Optimal. Rows with `Optimal == False` are highlighted in pink.
 
