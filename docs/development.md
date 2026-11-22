@@ -53,19 +53,9 @@ in `uv.lock`.
 - No amending or force-pushing; corrections are new `fix:` commits.
 - `.gitignore` excludes `.venv/`, caches, `.streamlit/secrets.toml` and editor/OS files.
 
-History:
+History: run `git log --oneline`. It shows one commit per milestone, in order, starting from
+`chore: scaffold uv project ...`. Later additions and fixes follow as separate `feat:`, `docs:`
+and `fix:` commits.
 
-```text
-e73f1ee chore: scaffold uv project with streamlit, matplotlib, pytest
-046f290 chore: add streamlit, matplotlib, pytest dependencies
-63cda18 feat(domain): add state model and four scenarios
-bd86874 feat(rules): add five constraint rules with reason log
-3ed3ab6 feat(search): add bfs, dfs, ucs with shared successor model
-7a7a16b feat(search): add greedy and a* with admissible/inadmissible toggle
-073f69f feat(trace): add search trace, rule log, optimality annotation
-caa2d51 test: add heuristic and search correctness tests
-36d02b6 feat(ui): render arena grid with expanded/path overlays
-4a9e866 feat(ui): add metrics table, heuristic comparison, and explainer
-baa8a34 feat(ui): filter rule log blocks by rule
-94c96c6 docs: add readme and demo walkthrough
-```
+Ruff is limited to `*.py` / `*.pyi` files (`[tool.ruff] include`), so the hand-aligned code
+blocks in `docs/*.md` are left as written.
