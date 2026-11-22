@@ -131,7 +131,14 @@ def _rule_log_panel(traces: dict[str, SearchTrace]) -> None:
             for r in RULE_ORDER
         ]
         st.dataframe(pd.DataFrame(rows), hide_index=True)
-        blocked = log.blocked_entries()[:10]
+        rule_filter = st.selectbox(
+            "Show blocks from", ["All rules", *RULE_ORDER], key="rule_filter"
+        )
+        blocked = [
+            e
+            for e in log.blocked_entries()
+            if rule_filter == "All rules" or e[2].rule == rule_filter
+        ][:10]
         if not blocked:
             st.caption("No blocked actions logged.")
         for state, action, result in blocked:
