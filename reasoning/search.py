@@ -243,3 +243,21 @@ def _best_first(
 def ucs(problem: Problem, log: RuleLog) -> SearchTrace:
     """Uniform-cost search: priority queue on path cost g; optimal for nonnegative costs."""
     return _best_first("UCS", problem, log, lambda g, s: (g,), reopen=True)
+
+
+def greedy(problem: Problem, log: RuleLog, h: Heuristic) -> SearchTrace:
+    """Greedy best-first: priority on h only; fast but neither optimal nor complete-cost."""
+    return _best_first("Greedy", problem, log, lambda g, s: (h(s, problem),), reopen=False)
+
+
+def astar(problem: Problem, log: RuleLog, h: Heuristic, label: str = "A*") -> SearchTrace:
+    """A*: priority on f = g + h, ties broken by lower h, then insertion order.
+
+    Goal test on pop (not on enqueue), so with an admissible h the result is optimal.
+    """
+
+    def priority(g: float, s: State) -> tuple[float, ...]:
+        hv = h(s, problem)
+        return (g + hv, hv)
+
+    return _best_first(label, problem, log, priority, reopen=True)
