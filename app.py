@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
-from domain.models import Action
+from domain.models import MODE_CYCLE, Action, State, next_mode
 from domain.scenarios import SCENARIOS
-from reasoning.rules import RULE_ORDER
+from reasoning.rules import RULE_ORDER, allowed, eval_rules
+from reasoning.search import MOVES, successors
 from reasoning.trace import SearchTrace, annotate_optimality, label_for, run
 from viz.grid_render import render_grid
 
@@ -29,6 +30,12 @@ ALGORITHM_KEYS: dict[str, str] = {
     "A*": "astar",
 }
 DEFAULT_SELECTED = ["UCS", "Greedy", "A*"]
+DIRECTION_NAMES: dict[tuple[int, int], str] = {
+    (0, -1): "Up",
+    (0, 1): "Down",
+    (-1, 0): "Left",
+    (1, 0): "Right",
+}
 PLAY_SECONDS = 2.2  # plus ~1 frame of rendering keeps a full play under ~3 s
 FRAME_SLEEP = 0.05
 
@@ -162,6 +169,93 @@ def tab_arena(traces: dict[str, SearchTrace]) -> None:
             _show_grid(trace, step, label)
             _metric_captions(trace)
     _rule_log_panel(traces)
+    _why_inspector(next(iter(traces.values())).scenario)
+
+
+def _why_rows(scenario: str, state: State) -> list[dict[str, str]]:
+    """One row per possible action: every applicable rule verdict plus the final decision."""
+    problem = SCENARIOS[scenario]()
+    rows: list[dict[str, str]] = []
+    for action in MOVES:
+        target = (state.pos[0] + action.dx, state.pos[1] + action.dy)
+        verdicts = eval_rules(problem, state, action)
+        ok, block = allowed(problem, state, action)
+        rows.append(
+            {
+                "Action": f"move {DIRECTION_NAMES[(action.dx, action.dy)]}",
+                "Target": str(target),
+                "Rules checked": "  ".join(f"{'✓' if r.ok else '✗'} {r.rule}" for r in verdicts),
+                "Verdict": "allowed" if ok else "blocked",
+                "Reason": block.detail if block else verdicts[-1].detail,
+            }
+        )
+    generated = {a.kind for a, _, _ in successors(problem, state)}
+    item = problem.grid.items.get(state.pos)
+    if "pickup" in generated:
+        pickup = ("allowed", f"picks up {item}")
+    elif item is None:
+        pickup = ("no-op", "no item on this cell")
+    else:
+        pickup = ("no-op", f"{item} already held")
+    rows.append(
+        {
+            "Action": "pickup",
+            "Target": str(state.pos),
+            "Rules checked": "(no rule applies)",
+            "Verdict": pickup[0],
+            "Reason": pickup[1],
+        }
+    )
+    rows.append(
+        {
+            "Action": "toggle_mode",
+            "Target": str(state.pos),
+            "Rules checked": "(no rule applies)",
+            "Verdict": "allowed",
+            "Reason": f"{state.mode} → {next_mode(state.mode)}",
+        }
+    )
+    return rows
+
+
+def _why_inspector(scenario: str) -> None:
+    """Pick any abstract state and see every rule's verdict for every action."""
+    grid = SCENARIOS[scenario]().grid
+    with st.expander("Why? — inspect the rules for any state"):
+        st.caption(
+            "Choose a state (cell, mode, inventory). Each row shows every rule that applies "
+            "to that action, in evaluation order; the first ✗ decides."
+        )
+        c_x, c_y, c_mode, c_key = st.columns(4, vertical_alignment="bottom")
+        x = c_x.number_input(
+            "x", 0, grid.width - 1, value=grid.start[0], step=1, key=f"why_x_{scenario}"
+        )
+        y = c_y.number_input(
+            "y", 0, grid.height - 1, value=grid.start[1], step=1, key=f"why_y_{scenario}"
+        )
+        mode = c_mode.selectbox("Mode", MODE_CYCLE, key="why_mode")
+        has_key = c_key.checkbox("Holding keycard", key="why_key")
+        state = State((int(x), int(y)), frozenset({"keycard"}) if has_key else frozenset(), mode)
+
+        pos = state.pos
+        facts = [f"terrain **{grid.terrain_at(pos)}**"]
+        if pos in grid.hazards:
+            facts.append("**hazard** (unreachable: the agent can never stand here)")
+        if pos in grid.restricted:
+            facts.append("**restricted** zone")
+        if pos in grid.items:
+            facts.append(f"item **{grid.items[pos]}**")
+        if pos == grid.goal:
+            facts.append("**goal**")
+        st.markdown(f"Cell {pos}: " + ", ".join(facts))
+
+        df = pd.DataFrame(_why_rows(scenario, state))
+
+        def highlight(row: pd.Series) -> list[str]:
+            color = "background-color: #ffe0e0" if row["Verdict"] == "blocked" else ""
+            return [color] * len(row)
+
+        st.dataframe(df.style.apply(highlight, axis=1), hide_index=True)
 
 
 def _metrics_frame(traces: dict[str, SearchTrace]) -> pd.DataFrame:

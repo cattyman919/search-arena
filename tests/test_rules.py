@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from domain.models import Action, Grid, Mode, Problem, State
-from domain.scenarios import TERRAIN_COST
+from domain.models import MODE_CYCLE, Action, Grid, Mode, Problem, State
+from domain.scenarios import SCENARIOS, TERRAIN_COST
 from reasoning.rules import RuleLog, allowed, eval_rules
 
 #   x: 0      1         2
@@ -117,3 +117,23 @@ def test_rule_log_counts_and_caps() -> None:
     assert log.counts["WALL_BOUNDS"] == 300
     assert len(log.entries) <= 500
     assert len(log.blocked_entries()) < 300  # capped, counters are not
+
+
+def test_eval_rules_agrees_with_allowed_on_every_scenario_state() -> None:
+    """The first blocking verdict from eval_rules is exactly what allowed() reports."""
+    moves = [Action("move", dx, dy) for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0))]
+    for build in SCENARIOS.values():
+        problem = build()
+        grid = problem.grid
+        for x in range(grid.width):
+            for y in range(grid.height):
+                for mode in MODE_CYCLE:
+                    for inv in (frozenset(), frozenset({"keycard"})):
+                        state = State((x, y), inv, mode)
+                        for action in moves:
+                            verdicts = eval_rules(problem, state, action)
+                            first_block = next((r for r in verdicts if not r.ok), None)
+                            assert allowed(problem, state, action) == (
+                                first_block is None,
+                                first_block,
+                            )
